@@ -8,8 +8,11 @@ import chatRoute from './routes/chatRoute';
 import authRoute from './routes/authRoute';
 import { setupSocket } from './socket';
 import { authenticateToken } from '../middleware/auth';
+import { connectDB } from './connection/db';
 
 dotenv.config();
+
+connectDB();
 
 const app = express();
 const server = http.createServer(app); // This is key!
