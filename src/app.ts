@@ -30,6 +30,10 @@ app.use(express.json());
 
 
 // Routes
+app.get('/', (req: Request, res: Response) => {
+  res.json({ message: 'Welcome to the Chat Work Backend API' });
+});
+
 app.use('/api/users', authenticateToken,usersRoutes);
 app.use('/api/chat', authenticateToken,chatRoute);
 app.use('/api/auth', authRoute);
