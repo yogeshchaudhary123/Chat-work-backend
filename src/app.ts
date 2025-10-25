@@ -17,7 +17,7 @@ const server = http.createServer(app); // This is key!
 // Attach Socket.IO to the same HTTP server
 const io = new SocketIOServer(server, {
   cors: {
-    origin: ['http://192.168.1.23:3001', 'http://localhost:3001'],
+    origin: ['http://192.168.1.23:3001', 'http://localhost:3001','https://chat-work-backend.onrender.com/'],
     methods: ['GET', 'POST'],
   },
 });
