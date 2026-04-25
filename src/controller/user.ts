@@ -3,7 +3,11 @@ import User from '../models/User';
 
 const getUser = async (req: Request, res: Response) => {
     try {
-        const users = await User.find({}, '-password'); // Exclude password
+        const data = await User.find({}, '-password'); // Exclude password
+        const users = data.map(user => {
+            const { _id, ...rest } = user.toObject();
+            return { id: _id, ...rest };
+        });
         res.json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
