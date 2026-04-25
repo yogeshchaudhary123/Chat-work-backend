@@ -15,8 +15,13 @@ dotenv.config();
 
 // Connect to MongoDB
 mongoose.connect(config.mongo.uri)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('Could not connect to MongoDB', err));
+  .then(() => {
+    console.log('✅ Successfully connected to MongoDB');
+  })
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err.message);
+    console.error('Connection URI used:', config.mongo.uri.replace(/\/\/.*:.*@/, '//<HIDDEN_AUTH>@')); // Mask credentials
+  });
 
 const app = express();
 const server = http.createServer(app); // This is key!
@@ -24,7 +29,7 @@ const server = http.createServer(app); // This is key!
 // Attach Socket.IO to the same HTTP server
 const io = new SocketIOServer(server, {
   cors: {
-    origin: ['http://192.168.1.23:3001', 'http://localhost:3001','https://chat-work-backend.onrender.com/'],
+    origin: ['http://192.168.1.23:3001', 'http://localhost:3001', 'https://chat-work-backend.onrender.com/'],
     methods: ['GET', 'POST'],
   },
 });
@@ -41,8 +46,8 @@ app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Welcome to the Chat Work Backend API' });
 });
 
-app.use('/api/users', authenticateToken,usersRoutes);
-app.use('/api/chat', authenticateToken,chatRoute);
+app.use('/api/users', authenticateToken, usersRoutes);
+app.use('/api/chat', authenticateToken, chatRoute);
 app.use('/api/auth', authRoute);
 app.get('/api/hello', (req: Request, res: Response) => {
   res.json({ message: 'Hello from backend!' });
