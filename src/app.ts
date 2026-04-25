@@ -14,13 +14,23 @@ import config from './config/config';
 dotenv.config();
 
 // Connect to MongoDB
-mongoose.connect(config.mongo.uri)
+const uri = config.mongo.uri;
+console.log(`🔌 Attempting to connect to: ${uri.substring(0, 15)}...`);
+
+if (!uri || uri.includes('localhost') && process.env.NODE_ENV === 'production') {
+  console.error('❌ Critical Error: MONGODB_URI is missing or invalid for production.');
+}
+
+mongoose.connect(uri)
   .then(() => {
     console.log('✅ Successfully connected to MongoDB');
   })
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err.message);
-    console.error('Connection URI used:', config.mongo.uri.replace(/\/\/.*:.*@/, '//<HIDDEN_AUTH>@')); // Mask credentials
+    if (err.message.includes('ENOTFOUND')) {
+      console.error('👉 Hint: This is a DNS error. Check if your MONGODB_URI hostname is correct and IP whitelisting is enabled.');
+    }
+    console.error('Connection URI used (masked):', uri.replace(/\/\/.*:.*@/, '//<HIDDEN_AUTH>@'));
   });
 
 const app = express();
