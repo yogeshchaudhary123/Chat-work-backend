@@ -1,13 +1,11 @@
 import { Request, Response } from 'express';
-import header from '../connection/apiHeader';
+import Message from '../models/Message';
 import { users } from '../socket'; // Import users map from socket
 
 // Helper to normalize time to 24-hour HH:mm
 function to24Hour(time: string): string {
-  // If already HH:mm:ss or HH:mm:ss.SSS, return as is
   if (/^\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(time)) return time;
 
-  // Try to parse formats like "05:27 pm" or "5:27:30.123 pm"
   const match = time.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,3}))?\s*(am|pm)?/i);
   if (match) {
     let hour = parseInt(match[1]);
@@ -25,7 +23,6 @@ function to24Hour(time: string): string {
            `${millisecond.toString().padStart(3, '0')}`;
   }
 
-  // fallback: use Date parser
   const date = new Date(`1970-01-01T${time}`);
   if (!isNaN(date.getTime())) {
     const h = date.getHours().toString().padStart(2, '0');
@@ -38,7 +35,6 @@ function to24Hour(time: string): string {
   return time;
 }
 
-
 // Save a chat message
 export const saveMessage = async (req: Request, res: Response): Promise<void> => {
   let { senderId, recipientId, text, time } = req.body;
@@ -47,16 +43,22 @@ export const saveMessage = async (req: Request, res: Response): Promise<void> =>
     return;
   }
   try {
-    // Normalize time to 24-hour HH:mm
     time = to24Hour(time);
-    // Check if recipient is online
     let seen = 0; // offline by default
     if (users.has(recipientId)) {
       seen = 1; // online but not seen
     }
-    const sql = `INSERT INTO messages (sender_id, recipient_id, text, time, seen) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
-    const result = await header.query(sql, [senderId, recipientId, text, time, seen]);
-    res.status(201).json(result.rows[0]);
+
+    const newMessage = new Message({
+      senderId,
+      recipientId,
+      text,
+      time,
+      seen
+    });
+
+    const savedMessage = await newMessage.save();
+    res.status(201).json(savedMessage);
   } catch (err) {
     console.error('Error saving message:', err);
     res.status(500).json({ error: 'Failed to save message' });
@@ -71,9 +73,14 @@ export const getChatHistory = async (req: Request, res: Response): Promise<void>
     return;
   }
   try {
-    const sql = `SELECT * FROM messages WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1) ORDER BY time ASC`;
-    const result = await header.query(sql, [userId, otherUserId]);
-    res.json(result.rows);
+    const history = await Message.find({
+      $or: [
+        { senderId: userId as any, recipientId: otherUserId as any },
+        { senderId: otherUserId as any, recipientId: userId as any }
+      ]
+    } as any).sort({ createdAt: 1 });
+    
+    res.json(history);
   } catch (err) {
     console.error('Error fetching chat history:', err);
     res.status(500).json({ error: 'Failed to fetch chat history' });
@@ -88,9 +95,10 @@ export const markMessagesAsSeen = async (req: Request, res: Response): Promise<v
     return;
   }
   try {
-    // Set seen=2 for all unseen messages
-    const sql = `UPDATE messages SET seen = 2 WHERE sender_id = $1 AND recipient_id = $2 AND seen <> 2`;
-    await header.query(sql, [senderId, recipientId]);
+    await Message.updateMany(
+      { senderId, recipientId, seen: { $ne: 2 } },
+      { $set: { seen: 2 } }
+    );
     res.json({ success: true });
   } catch (err) {
     console.error('Error marking messages as seen:', err);

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs'; // Only if you're storing hashed passwords
-import header from '../connection/apiHeader';
+import bcrypt from 'bcryptjs';
+import User from '../models/User';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'my-super-secret-key-12345';
 
@@ -14,29 +14,22 @@ const login = async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    // Query user by email
-    const sql = `SELECT * FROM users WHERE email = $1 LIMIT 1`;
-    const result = await header.query(sql, [email]);
-    const users = result.rows;
+    const user = await User.findOne({ email });
 
-    if (!Array.isArray(users) || users.length === 0) {
+    if (!user) {
       res.status(401).json({ success: false, message: 'Invalid email or password.' });
       return;
     }
 
-    const user = users[0];
-
-    // If you store hashed passwords (recommended)
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       res.status(401).json({ success: false, message: 'Invalid email or password.' });
       return;
     }
 
-    // Generate JWT
     const token = jwt.sign(
       {
-        id: user.id,
+        id: user._id,
         email: user.email,
         name: user.name,
       },
@@ -48,7 +41,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
       success: true,
       message: 'Login successful',
       user: {
-        id: user.id,
+        id: user._id,
         email: user.email,
         name: user.name,
         token: token,
@@ -69,14 +62,29 @@ const signup = async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      res.status(400).json({ success: false, message: 'User already exists.' });
+      return;
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const sql = `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email`;
-    const result = await header.query(sql, [name, email, hashedPassword]);
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+    });
+
+    const savedUser = await newUser.save();
 
     res.status(201).json({
       success: true,
       message: 'User created successfully',
-      user: result.rows[0]
+      user: {
+        id: savedUser._id,
+        name: savedUser.name,
+        email: savedUser.email,
+      }
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -93,21 +101,19 @@ const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    const sql = `SELECT * FROM users WHERE email = $1 LIMIT 1`;
-    const result = await header.query(sql, [email]);
+    const user = await User.findOne({ email });
 
-    if (result.rows.length === 0) {
+    if (!user) {
       res.status(404).json({ success: false, message: 'User not found' });
       return;
     }
 
-    // In a real app, generate a unique token, save it to DB with expiry, and send email
     const token = Math.random().toString(36).substr(2, 10);
     
     res.json({
       success: true,
       message: 'Password reset instructions sent to your email (simulated)',
-      token: token // Sending token for development/demo purposes
+      token: token
     });
   } catch (error) {
     console.error('Forgot password error:', error);
@@ -124,11 +130,7 @@ const resetPassword = async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    // In a real app, you would verify the token from the database
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // For simulation, we'll just return success. 
-    // Ideally, you'd find the user by token and update their password.
     
     res.json({
       success: true,

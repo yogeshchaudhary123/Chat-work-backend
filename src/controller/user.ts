@@ -1,11 +1,14 @@
-import {Request, Response } from 'express';
-import header from '../connection/apiHeader'
-const NAMESPACE = 'Users';
+import { Request, Response } from 'express';
+import User from '../models/User';
 
 const getUser = async (req: Request, res: Response) => {
-    let sql = `SELECT * FROM users `;
-    let users = await header.query(sql)
-    res.json(users.rows);
+    try {
+        const users = await User.find({}, '-password'); // Exclude password
+        res.json(users);
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
 }
 
 export default { getUser }

@@ -7,9 +7,16 @@ import usersRoutes from './routes/userRoute';
 import chatRoute from './routes/chatRoute';
 import authRoute from './routes/authRoute';
 import { setupSocket } from './socket';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken } from './middleware/auth';
+import mongoose from 'mongoose';
+import config from './config/config';
 
 dotenv.config();
+
+// Connect to MongoDB
+mongoose.connect(config.mongo.uri)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('Could not connect to MongoDB', err));
 
 const app = express();
 const server = http.createServer(app); // This is key!
